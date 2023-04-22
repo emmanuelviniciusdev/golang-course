@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -20,14 +21,29 @@ type Author struct {
 	Website string `json:"website"`
 }
 
-var courses []Course
+var courses []Course = []Course{}
 
 func (course *Course) IsEmpty() bool {
 	return course.Name == ""
 }
 
+func (course *Course) IsNotEmpty() bool {
+	return !course.IsEmpty()
+}
+
 func main()  {
-	
+	fmt.Println("API - LearnCodeOnline.in")
+
+	r := mux.NewRouter()
+
+	r.HandleFunc("/", serveHome).Methods("GET")
+	r.HandleFunc("/courses", getAllCourses).Methods("GET")
+	r.HandleFunc("/courses", createOneCourse).Methods("POST")
+	r.HandleFunc("/courses/{id}", getOneCourse).Methods("GET")
+	r.HandleFunc("/courses/{id}", updateOneCourse).Methods("PUT")
+	r.HandleFunc("/courses/{id}", deleteOneCourse).Methods("DELETE")
+
+	log.Fatal(http.ListenAndServe(":4000", r))
 }
 
 func deleteOneCourse(w http.ResponseWriter, r *http.Request) {
@@ -116,7 +132,11 @@ func getOneCourse(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	json.NewEncoder(w).Encode(courseFound)
+	if courseFound.IsNotEmpty() {
+		json.NewEncoder(w).Encode(courseFound)
+	} else {
+		json.NewEncoder(w).Encode(nil)
+	}
 }
 
 func getAllCourses(w http.ResponseWriter, r *http.Request) {
