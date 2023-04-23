@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -32,6 +33,56 @@ func Init()  {
 	collection = client.Database(databaseName).Collection(collectionName)
 
 	fmt.Println("MongoDB connection was successful")
+}
+
+func InsertOneMovie(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var newMovie models.MovieNetflixInput
+
+	if r.Body == nil {
+		fmt.Println("Body is null")
+		json.NewEncoder(w).Encode(nil)
+		return
+	}
+
+	json.NewDecoder(r.Body).Decode(&newMovie)
+
+	result := insertOneMovie(newMovie)
+
+	json.NewEncoder(w).Encode(result.InsertedID)
+}
+
+func UpdateOneMovie(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var updatedMovie models.MovieNetflixInput
+
+	if r.Body == nil {
+		fmt.Println("Body is null")
+		json.NewEncoder(w).Encode(nil)
+		return
+	}
+
+	json.NewDecoder(r.Body).Decode(&updatedMovie)
+
+	params := mux.Vars(r)
+
+	updateOneMovie(params["movieId"], updatedMovie.MovieName, updatedMovie.Watched)
+}
+
+func DeleteOneMovie(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	params := mux.Vars(r)
+
+	deleteOneMovie(params["movieId"])
+}
+
+func DeleteAllMovies(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	deleteAllMovies()
 }
 
 func GetAllMovies(w http.ResponseWriter, r *http.Request) {
@@ -67,6 +118,8 @@ func getAllMovies() []bson.M {
 		movies = append(movies, movie)
 	}
 
+	fmt.Println("Quantity of movies being returned:", len(movies))
+
 	return movies
 }
 
@@ -100,7 +153,7 @@ func deleteOneMovie(movieId string) *mongo.DeleteResult {
 	return result
 }
 
-func updateOneMovie(movieId string, movieName string, watched bool) *mongo.UpdateResult {
+func updateOneMovie(movieId string, movieName string, watched bool) {
 	movieObjectId, _ := primitive.ObjectIDFromHex(movieId)
 
 	filterQuery := bson.M{"_id": movieObjectId}
@@ -113,11 +166,9 @@ func updateOneMovie(movieId string, movieName string, watched bool) *mongo.Updat
 	}
 
 	fmt.Println("Modified count:", result.ModifiedCount)
-
-	return result
 }
 
-func insertOneMovie(movie models.MovieNetflix) *mongo.InsertOneResult {
+func insertOneMovie(movie models.MovieNetflixInput) *mongo.InsertOneResult {
 	result, err := collection.InsertOne(context.TODO(), movie)
 
 	if err != nil {
